@@ -73,17 +73,65 @@ Item {
   }
 
   function run(proc, cmd) {
-    if (proc.running)
+    if (proc.running) {
+      // Killing an in-flight command makes it exit non-zero (SIGTERM reports 15), which
+      // must not be read as "this value failed": the replacement started just below is
+      // about to apply the newer one. Without this flag, double-clicking a toggle let the
+      // dying command's revert overwrite the value its successor applied successfully,
+      // leaving the panel asserting the opposite of what the headset was told.
+      proc.superseded = true;
       proc.running = false;
+    }
     proc.command = cmd;
     proc.running = true;
+    proc.pending = true;
+    startCheck.restart();
+  }
+
+  //
+  // ------ Did the command start at all? ------
+  //
+  // Quickshell's Process emits neither exited nor stdout.onStreamFinished when the binary
+  // cannot be found: running simply goes back to false, silently. Every other failure path
+  // in this file hangs off one of those two signals, so without this check a missing
+  // headsetcontrol is indistinguishable from a headset that has not reported yet, and a
+  // setter persists a value that reached nothing. running still reads true synchronously
+  // after the assignment even for a command that cannot start, so the check has to be
+  // deferred rather than made inline.
+  readonly property var watchedProcs: [poll, sidetoneProc, voiceProc, inactiveProc]
+
+  Timer {
+    id: startCheck
+    interval: 3000
+    repeat: false
+    onTriggered: {
+      for (var i = 0; i < root.watchedProcs.length; i++) {
+        const proc = root.watchedProcs[i];
+        if (proc.pending && !proc.running)
+          root.startFailed(proc);
+      }
+    }
+  }
+
+  function startFailed(proc) {
+    proc.pending = false;
+    if (root.toolAvailable)
+      Logger.w("HeadsetControl", "headsetcontrol could not be started - is it installed?");
+    root.toolAvailable = false;
+    if (proc === poll) {
+      pollWatchdog.stop();
+      root.clear();
+      root.logState("start-failed");
+    } else {
+      root.revertControl(proc, "headsetcontrol could not be started");
+    }
   }
 
   //
   // ------ Battery polling ------
   //
   Timer {
-    interval: Math.max(10, root.pollIntervalSeconds) * 1000
+    interval: Math.max(15, root.pollIntervalSeconds) * 1000
     running: true
     repeat: true
     onTriggered: root.refresh()
@@ -95,9 +143,12 @@ Item {
     // become silent no-ops until the shell restarted. The watchdog below breaks that.
     if (poll.running)
       return;
+    poll.timedOut = false;
     poll.command = ["headsetcontrol", "-b", "-o", "json"];
     poll.running = true;
+    poll.pending = true;
     pollWatchdog.restart();
+    startCheck.restart();
   }
 
   Timer {
@@ -108,9 +159,29 @@ Item {
       if (!poll.running)
         return;
       Logger.w("HeadsetControl", "headsetcontrol did not finish within", interval / 1000, "s - killing it");
+      // Marks the output that follows as unusable: a killed poll still delivers whatever
+      // it had collected, and empty output from it would otherwise be misread as "the
+      // tool is missing" when the tool is merely slow.
+      poll.timedOut = true;
       poll.running = false;
+      pollKill.restart();
       root.clear();
       root.logState("poll-timeout");
+    }
+  }
+
+  // running = false only asks politely. A process wedged in a USB ioctl can ignore that,
+  // and while it lives refresh()'s guard keeps every later poll a no-op - the exact latch
+  // the watchdog exists to break. So the request is escalated.
+  Timer {
+    id: pollKill
+    interval: 2000
+    repeat: false
+    onTriggered: {
+      if (!poll.running)
+        return;
+      Logger.w("HeadsetControl", "headsetcontrol ignored SIGTERM - sending SIGKILL");
+      poll.signal(9);
     }
   }
 
@@ -133,15 +204,28 @@ Item {
   Process {
     id: poll
 
+    // Set from the moment a poll is started until one of the completion paths is reached;
+    // startCheck reads it to tell "never started" from "finished".
+    property bool pending: false
+    // Set when the watchdog killed this poll, so its truncated output is discarded.
+    property bool timedOut: false
+
     onExited: (exitCode, exitStatus) => {
       // A non-zero code is normal — headsetcontrol exits 1 when no device is attached
       // while still printing valid JSON — so the code is only used to stop the watchdog.
       pollWatchdog.stop();
+      pollKill.stop();
+      poll.pending = false;
     }
 
     stdout: StdioCollector {
       onStreamFinished: {
         pollWatchdog.stop();
+        poll.pending = false;
+        if (poll.timedOut) {
+          poll.timedOut = false;
+          return;
+        }
         if (!text || text.trim() === "") {
           // A working headsetcontrol always prints JSON. Nothing on stdout means it is
           // missing or broken, which the panel says outright instead of pretending to
@@ -198,6 +282,10 @@ Item {
   function applyControl(proc, key, value, cmd, label) {
     proc.revertKey = key;
     proc.revertValue = root.setting(key, value);
+    // controlsApplied is part of what a failed apply has to undo: a first-ever apply that
+    // never reached the headset must not leave the panel claiming these values came from
+    // here, which is what its footnote says once the flag is set.
+    proc.revertApplied = root.controlsApplied;
     root.persist({
       [key]: value,
       "controlsApplied": true
@@ -207,22 +295,34 @@ Item {
   }
 
   function controlFinished(proc, exitCode) {
+    if (proc.superseded) {
+      // This exit belongs to a command we killed ourselves; its successor owns the state.
+      proc.superseded = false;
+      return;
+    }
+    proc.pending = false;
     if (exitCode === 0) {
       proc.revertKey = "";
       return;
     }
-    Logger.w("HeadsetControl", "headsetcontrol exited", exitCode, "applying", proc.revertKey, "- reverting to", proc.revertValue);
-    if (proc.revertKey !== "")
-      root.persist({
-        [proc.revertKey]: proc.revertValue
-      });
+    root.revertControl(proc, "headsetcontrol exited " + exitCode);
+  }
+
+  function revertControl(proc, why) {
+    if (proc.revertKey === "")
+      return;
+    Logger.w("HeadsetControl", why, "applying", proc.revertKey, "- reverting to", proc.revertValue);
+    root.persist({
+      [proc.revertKey]: proc.revertValue,
+      "controlsApplied": proc.revertApplied
+    });
     proc.revertKey = "";
   }
 
   function applySidetone(value) {
     if (!isFinite(value))
       return;
-    const v = Math.round(Math.max(0, Math.min(127, value)));
+    const v = Math.round(Math.max(0, Math.min(128, value)));
     root.applyControl(sidetoneProc, "sidetone", v, ["headsetcontrol", "-s", String(v)], "Sidetone set to");
   }
 
@@ -249,6 +349,9 @@ Item {
     id: sidetoneProc
     property string revertKey: ""
     property var revertValue: null
+    property bool revertApplied: false
+    property bool pending: false
+    property bool superseded: false
     onExited: (exitCode, exitStatus) => root.controlFinished(sidetoneProc, exitCode)
   }
 
@@ -256,6 +359,9 @@ Item {
     id: voiceProc
     property string revertKey: ""
     property var revertValue: null
+    property bool revertApplied: false
+    property bool pending: false
+    property bool superseded: false
     onExited: (exitCode, exitStatus) => root.controlFinished(voiceProc, exitCode)
   }
 
@@ -263,6 +369,9 @@ Item {
     id: inactiveProc
     property string revertKey: ""
     property var revertValue: null
+    property bool revertApplied: false
+    property bool pending: false
+    property bool superseded: false
     onExited: (exitCode, exitStatus) => root.controlFinished(inactiveProc, exitCode)
   }
 
@@ -288,7 +397,15 @@ Item {
     }
 
     function voicePrompts(enabled: string): void {
-      root.applyVoicePrompts(enabled === "1" || enabled === "true");
+      // Anything unrecognised used to fall through to false, so "voicePrompts yes" quietly
+      // turned them off and persisted that. Only the documented spellings are accepted.
+      const on = ["1", "true", "on", "yes"].indexOf(String(enabled).toLowerCase()) !== -1;
+      const off = ["0", "false", "off", "no"].indexOf(String(enabled).toLowerCase()) !== -1;
+      if (!on && !off) {
+        Logger.w("HeadsetControl", "ipc voicePrompts: not a boolean:", enabled);
+        return;
+      }
+      root.applyVoicePrompts(on);
     }
 
     function inactiveTime(minutes: string): void {
