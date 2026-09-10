@@ -62,14 +62,16 @@ registry.json      the index that makes this repo an installable plugin source
 install.sh         wires the package into ~/.config/noctalia/plugins
 test/              failure-path tests + capability scenarios for devices we do not have
 CLAUDE.md          architecture, measured device behaviour, dev loop
+TRAPS.md           host and toolchain traps already walked into
 LICENSE            MIT
 ```
 
 ## Contributing
 
 `CLAUDE.md` is the context of record: architecture, the constraints that were measured
-rather than assumed, and the traps already walked into. Read it before changing behaviour —
-several things that look wrong are deliberate and documented there.
+rather than assumed, and the dev loop; `TRAPS.md` beside it collects the host and toolchain
+traps already walked into. Read both before changing behaviour — several things that look
+wrong are deliberate and documented there.
 
 Three things to keep green:
 
