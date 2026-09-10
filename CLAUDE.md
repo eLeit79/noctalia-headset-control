@@ -13,7 +13,9 @@ CachyOS. Test hardware: **HyperX Cloud Alpha Wireless**, USB id `0x03f0:0x098d`,
 `CAP_SIDETONE`, `CAP_BATTERY_STATUS`, `CAP_INACTIVE_TIME`, `CAP_VOICE_PROMPTS`. No other
 headset has ever been attached, but the capability gating is no longer unexercised: it was
 tested on 2026-09-10 by putting a stub `headsetcontrol` on the shell's `PATH` and feeding
-it scenarios for other devices, which found two real bugs (see below).
+it scenarios for other devices, which found three real bugs (see below). That harness is
+committed as `test/` — run `./test/run.sh` after touching anything capability-related.
+`Main.qml` logs its derived state at debug level for it to read.
 
 ## Git workflow
 
@@ -40,13 +42,23 @@ releases — still does.
 ## Layout
 
 ```
-install.sh       wires the plugin into ~/.config/noctalia/plugins (symlink farm, or --copy)
-manifest.json    plugin id, version, entryPoints, defaultSettings
-Main.qml         headless logic: polls battery, exposes state, applies settings, IPC
-BarWidget.qml    the bar capsule (icon + percentage); left-click opens the panel
-Panel.qml        the popup: sidetone / auto power-off / voice prompts
-Settings.qml     noctalia's per-widget settings page (poll interval, thresholds)
+registry.json          the index a noctalia plugin source must expose (repo-only)
+install.sh             wires the package into ~/.config/noctalia/plugins (repo-only)
+CLAUDE.md              this file (repo-only)
+test/                  stub headsetcontrol + capability scenarios (repo-only)
+headset-control/       THE PACKAGE — only this is ever shipped to users
+  manifest.json        plugin id, version, entryPoints, defaultSettings
+  Main.qml             headless logic: polls battery, exposes state, applies settings, IPC
+  BarWidget.qml        the bar capsule (icon + percentage); left-click opens the panel
+  Panel.qml            the popup: sidetone / auto power-off / voice prompts
+  Settings.qml         noctalia's per-widget settings page (poll interval, thresholds)
+  i18n/en.json         user-visible strings
+  README.md            user-facing docs
 ```
+
+**The split is load-bearing, not tidiness.** Installing a plugin copies its directory
+verbatim — see *Publishing* — so anything inside `headset-control/` ships to every user.
+Development-only material must live beside it, never in it.
 
 `entryPoints` in `manifest.json` maps roles to those filenames. The names are technically
 free-form, but `Main`/`BarWidget`/`Panel`/`Settings` is the convention 98 of 99 official
@@ -83,8 +95,8 @@ language changes. The plugin API's own comment asks plugins to depend on it.
 picks `key` vs `key-plural`. `trp` is unused here because every count in this UI comes off
 a slider whose step never yields 1, so the singular forms would be dead keys.
 
-Adding a language is just `i18n/<langCode>.json` — then re-run `install.sh`, since a new
-file needs its symlink. Missing keys fall back to English automatically.
+Adding a language is just `headset-control/i18n/<langCode>.json` — then re-run
+`install.sh`, since a new file needs its symlink. Missing keys fall back to English automatically.
 
 The QML is formatted with **`qmlformat --indent-width 2 -i`** (the Qt6 binary at
 `/usr/lib/qt6/bin/qmlformat`; the one on `PATH` is Qt5's). All four files are byte-clean
@@ -158,11 +170,43 @@ never finished — check `pgrep -a headsetcontrol` for a stray.
 - Hardware mute is upstream of PipeWire, so `wpctl` / `pactl` cheerfully report volume
   1.00 and `Mute: no` while recordings are completely silent.
 
+## Publishing
+
+There is no build step and no packaging format. A **plugin source is a git repo** that has:
+
+1. `registry.json` at its root — `{"plugins": [{id, name, version, author, description,
+   tags, official, minNoctaliaVersion, lastUpdated}]}`. This is the index the shell fetches
+   (sparse checkout of that one file).
+2. **one directory per plugin, named exactly the manifest `id`.**
+
+Installing plugin `X` sparse-checks-out the `X/` directory and runs, in effect:
+
+```sh
+rm -f "$tmp/X/settings.json" && cp -r "$tmp/X/." "$pluginDir/"
+```
+
+So **the package is everything in that directory**, dotfiles included, with `settings.json`
+as the single hard-coded exclusion. There is no `files` list and no ignore mechanism —
+which is the whole reason `test/`, `install.sh` and this file sit *outside*
+`headset-control/`.
+
+Two ways to publish, both needing that layout:
+
+- **Self-hosted**: anyone adds this repo's URL as a source in their `plugins.json`. That
+  works today; `registry.json` is what makes it possible.
+- **Upstream**: contribute the `headset-control/` directory plus a `registry.json` entry to
+  `noctalia-dev/noctalia-plugins`.
+
+`registry.json` and `manifest.json` both carry the version, and the update check compares
+the registry's against the installed manifest's — so **bump both together** or update
+detection silently breaks. `install.sh` warns on drift.
+
 ## Install wiring
 
 `./install.sh` makes `~/.config/noctalia/plugins/headset-control` a **real directory
-holding one symlink per source file** (`--copy` copies instead, for a machine with no
-checkout). The directory name must equal the manifest `id`.
+holding one symlink per packaged file** (`--copy` copies instead, for a machine with no
+checkout). It installs only the package directory, and finds it by looking for the
+`*/manifest.json` whose directory name matches the manifest `id`.
 
 Don't symlink the whole project folder in. `PluginRegistry.getPluginSettingsFile()`
 hardcodes runtime settings to `<pluginsDir>/<id>/settings.json` (`PluginRegistry.qml:577`),

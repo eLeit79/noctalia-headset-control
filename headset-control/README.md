@@ -73,13 +73,17 @@ e.g. `de`, `fr`, `pt`, `zh-CN`), translate the values, and re-run
 
 ## Install
 
-Run the installer, then enable the plugin in `~/.config/noctalia/plugins.json`
-and add `plugin:headset-control` to a bar section in
-`~/.config/noctalia/settings.json`.
+**From noctalia**, add this repository as a plugin source in
+`~/.config/noctalia/plugins.json`, then install "Headset Control" from
+Settings -> Plugins.
 
-    ./install.sh            # symlink each file into the plugin dir (keeps edits live)
+**From a checkout**, run the installer at the repository root:
+
+    ./install.sh            # symlink the packaged files into the plugin dir
     ./install.sh --copy     # copy instead, for a machine with no checkout
 
-Either way the plugin directory itself is a real directory, so the runtime
-`settings.json` noctalia writes there stays out of this source tree. The
-directory name under `plugins/` must match the manifest `id`.
+Then enable the plugin in `~/.config/noctalia/plugins.json` and add
+`plugin:headset-control` to a bar section in `~/.config/noctalia/settings.json`.
+
+Either way the plugin directory is a real directory, so the runtime
+`settings.json` noctalia writes there stays out of the source tree.
