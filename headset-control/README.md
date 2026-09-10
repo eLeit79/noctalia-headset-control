@@ -11,7 +11,13 @@ headset `headsetcontrol` reports a `battery` capability for.
 ## Requirements
 
 - `headsetcontrol` (Arch: `pacman -S headsetcontrol`, official `extra` repo)
-- noctalia-shell 4.x
+- noctalia-shell 4.7 or newer
+
+`headsetcontrol` needs udev rules to reach the device as your own user. The
+Arch package installs them; if you build it yourself, install
+`udev/70-headsets.rules` from its source, or every control will fail
+silently at the permission check. If the plugin cannot run `headsetcontrol`
+at all, the panel says so rather than waiting forever for a device.
 
 ## Behaviour
 
@@ -41,6 +47,10 @@ control is shown only if the connected device reports the matching capability:
 | Auto power-off | `CAP_INACTIVE_TIME` |
 | Voice prompts | `CAP_VOICE_PROMPTS` |
 
+Only the first device `headsetcontrol` reports is used. With two supported
+headsets attached at once, the bar shows the first one's battery, so treat
+that case as unsupported for now.
+
 If the device reports none of the three controls, the panel says so instead of
 showing dead widgets. Capabilities are remembered from the last successful read,
 so the panel does not empty out while the headset is asleep.
@@ -50,7 +60,9 @@ so the panel does not empty out while the headset is asleep.
 The Cloud Alpha Wireless ignores the level byte `headsetcontrol` sends after the
 sidetone enable command. Verified by sweeping levels 1, 2, 3, 4, 5, 6, 8, 10, 12,
 16, 24, 32, 48, 64, 96 and 127 while talking: every non-zero level sounds
-identical, and `128` (`0x80`) is out of range and silences it. The reference GUI for this headset
+identical, and `128` silences it altogether — note that 128 is *within* the
+range `headsetcontrol --help` documents (`-s <0-128>`), so that is the device
+behaving oddly, not an out-of-range rejection. The reference GUI for this headset
 only ever sends the on/off commands (`0x21bb1001` / `0x21bb1000`) and leaves its
 level-response handler an empty stub, which matches that behaviour. The panel
 therefore exposes sidetone as a toggle for this product id (`0x098d`), enabling it
