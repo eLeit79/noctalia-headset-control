@@ -9,7 +9,8 @@
     "tooltip": {
       "offline": "{device}: off or disconnected",
       "charging": "{device}: charging ({level}%)",
-      "level": "{device}: {level}%"
+      "level": "{device}: {level}%",
+      "name-only": "{device}"
     }
   },
   "panel": {

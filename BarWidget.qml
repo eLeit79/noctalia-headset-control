@@ -29,13 +29,22 @@ Item {
   readonly property int level: root.pluginApi?.mainInstance?.batteryLevel !== undefined ? root.pluginApi.mainInstance.batteryLevel : -1
   readonly property bool online: root.pluginApi?.mainInstance?.online === true
   readonly property bool charging: root.pluginApi?.mainInstance?.charging === true
+  readonly property bool hasBattery: root.pluginApi?.mainInstance?.hasBattery === true
+  readonly property bool devicePresent: root.pluginApi?.mainInstance?.deviceFound === true
   readonly property string deviceName: root.pluginApi?.mainInstance?.deviceName || root.tr("device.fallback-name")
 
   readonly property bool hideWhenOffline: root.pluginApi?.pluginSettings?.hideWhenOffline !== undefined ? root.pluginApi.pluginSettings.hideWhenOffline : (root.pluginApi?.manifest?.metadata?.defaultSettings?.hideWhenOffline !== false)
   readonly property int lowThreshold: root.pluginApi?.pluginSettings?.lowThreshold || root.pluginApi?.manifest?.metadata?.defaultSettings?.lowThreshold || 20
 
   readonly property bool isLow: root.online && !root.charging && root.level >= 0 && root.level <= root.lowThreshold
-  readonly property bool isVisible: root.online || !root.hideWhenOffline
+
+  // A device with no battery capability has no percentage to show, so it gets the icon
+  // alone. Its visibility can only follow "is the device enumerated", because what
+  // headsetcontrol enumerates is the dongle: a wireless headset stays listed while it is
+  // powered off (status "partial", battery unavailable). For such a device we therefore
+  // cannot tell awake from asleep at all. Devices that do report battery keep the old
+  // behaviour, where availability of a reading is what hides the widget.
+  readonly property bool isVisible: (root.hasBattery ? root.online : root.devicePresent) || !root.hideWhenOffline
 
   visible: root.isVisible
   opacity: root.isVisible ? 1.0 : 0.0
@@ -60,6 +69,10 @@ Item {
   }
 
   function iconName() {
+    // No battery capability means no battery state to depict: the plain headset icon,
+    // never the crossed-out battery, which would read as "battery dead".
+    if (!root.hasBattery)
+      return "bt-device-headset";
     if (!root.online)
       return "battery-off";
     if (root.charging)
@@ -118,6 +131,7 @@ Item {
 
         NText {
           Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+          visible: root.hasBattery
           text: root.labelText()
           color: root.contentColor()
           pointSize: root.barFontSize
@@ -181,7 +195,11 @@ Item {
 
   function buildTooltip() {
     var msg;
-    if (!root.online)
+    if (!root.hasBattery)
+      msg = root.tr("bar.tooltip.name-only", {
+        "device": root.deviceName
+      });
+    else if (!root.online)
       msg = root.tr("bar.tooltip.offline", {
         "device": root.deviceName
       });
