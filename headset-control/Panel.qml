@@ -89,6 +89,7 @@ Item {
       NToggle {
         Layout.fillWidth: true
         visible: root.main?.hasSidetone === true && root.main?.sidetoneLevelIgnored === true
+        enabled: root.main?.deviceFound === true
         label: root.tr("panel.sidetone.label")
         description: root.tr("panel.sidetone.desc-toggle")
         checked: root.main ? root.main.sidetoneEnabled : false
@@ -104,6 +105,9 @@ Item {
         Layout.fillWidth: true
         spacing: Style.marginS
         visible: root.main?.hasSidetone === true && root.main?.sidetoneLevelIgnored !== true
+        // Capabilities are kept when the device disappears so the panel does not empty
+        // out, but a control that can only fail should not look operable.
+        enabled: root.main?.deviceFound === true
 
         RowLayout {
           Layout.fillWidth: true
@@ -124,7 +128,7 @@ Item {
           id: sidetoneSlider
           Layout.fillWidth: true
           from: 0
-          to: 127
+          to: 128
           stepSize: 1
           value: root.main ? root.main.sidetone : 0
 
@@ -158,6 +162,7 @@ Item {
         Layout.fillWidth: true
         spacing: Style.marginS
         visible: root.main?.hasInactiveTime === true
+        enabled: root.main?.deviceFound === true
 
         RowLayout {
           Layout.fillWidth: true
@@ -210,6 +215,7 @@ Item {
       NToggle {
         Layout.fillWidth: true
         visible: root.main?.hasVoicePrompts === true
+        enabled: root.main?.deviceFound === true
         label: root.tr("panel.voice-prompts.label")
         description: root.tr("panel.voice-prompts.desc")
         checked: root.main ? root.main.voicePrompts : true
@@ -228,6 +234,15 @@ Item {
         // a device that reports zero capabilities has still reported, and used to be
         // told the plugin was waiting for it.
         text: root.main?.toolAvailable === false ? root.tr("panel.tool-missing") : (root.main?.deviceFound === true ? root.tr("panel.no-controls") : root.tr("panel.waiting"))
+        pointSize: Style.fontSizeS
+        color: Color.mOnSurfaceVariant
+        wrapMode: Text.WordWrap
+      }
+
+      NText {
+        Layout.fillWidth: true
+        visible: root.main?.hasAnyControl === true && root.main?.deviceFound !== true
+        text: root.tr("panel.device-absent")
         pointSize: Style.fontSizeS
         color: Color.mOnSurfaceVariant
         wrapMode: Text.WordWrap

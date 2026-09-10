@@ -18,7 +18,7 @@
       ],
       "capabilities_str": [
         "sidetone",
-        "battery status"
+        "battery"
       ],
       "battery": {
         "status": "BATTERY_AVAILABLE",

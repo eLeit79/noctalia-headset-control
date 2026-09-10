@@ -33,6 +33,13 @@ checkout. Add it to `~/.config/noctalia/plugins.json`:
 
 Then install "Headset Control" from Settings → Plugins and add it to a bar section.
 
+Installed that way, noctalia keys the plugin by source: the directory becomes
+`plugins/<hash>:headset-control` and the IPC target `plugin:<hash>:headset-control`, where
+the hash is the first six hex of the source URL's SHA-256. Only plugins from the official
+`noctalia-dev/noctalia-plugins` source keep the plain id. So use the plain
+`plugin:headset-control` form shown elsewhere in these docs **only** for a checkout
+install — and do not run both installs at once, or two copies load and both poll.
+
 From a checkout instead:
 
 ```sh
@@ -50,11 +57,12 @@ Only `headset-control/` is ever shipped to users — installing a plugin copies 
 directory verbatim, so development-only material has to live beside it, never inside it.
 
 ```
-headset-control/   the plugin package (manifest, QML, i18n, user README, preview)
+headset-control/   the plugin package (manifest, QML, i18n, user README, preview, LICENSE)
 registry.json      the index that makes this repo an installable plugin source
 install.sh         wires the package into ~/.config/noctalia/plugins
-test/              stub headsetcontrol + capability scenarios for other devices
+test/              failure-path tests + capability scenarios for devices we do not have
 CLAUDE.md          architecture, measured device behaviour, dev loop
+LICENSE            MIT
 ```
 
 ## Contributing
@@ -63,12 +71,18 @@ CLAUDE.md          architecture, measured device behaviour, dev loop
 rather than assumed, and the traps already walked into. Read it before changing behaviour —
 several things that look wrong are deliberate and documented there.
 
-Two things to keep green:
+Three things to keep green:
 
 ```sh
+./test/runtime.sh                               # failure paths; safe, ~50s
 ./test/run.sh                                   # capability gating, 9 scenarios
-/usr/lib/qt6/bin/qmlformat --indent-width 2 -i  # the Qt6 binary, not the one on PATH
+/usr/lib/qt6/bin/qmlformat --indent-width 2 -i headset-control/*.qml
 ```
+
+`runtime.sh` is safe to run any time: it loads `Main.qml` under `qs -p` and restarts
+nothing. **`run.sh` restarts your shell** with a stub `headsetcontrol` on `PATH` and leaves
+simulated devices in the bar until you restore it, so save your work first. Use the Qt6
+`qmlformat` at that path — the one on `PATH` is Qt5's and defaults to a different indent.
 
 Development happens on a branch off `main`, and `registry.json` and
 `headset-control/manifest.json` carry the version in two places — bump both together or

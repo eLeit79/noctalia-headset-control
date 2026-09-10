@@ -3,7 +3,7 @@
     {
       "id": "headset-control",
       "name": "Headset Control",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "men",
       "description": "Shows a USB gaming headset in the bar via headsetcontrol, with controls gated on what the device actually supports.",
       "tags": [
@@ -12,7 +12,9 @@
       ],
       "official": false,
       "minNoctaliaVersion": "4.7.0",
-      "lastUpdated": "2026-09-10"
+      "lastUpdated": "2026-09-10",
+      "license": "MIT",
+      "repository": "https://github.com/eLeit79/noctalia-headset-control"
     }
   ]
 }

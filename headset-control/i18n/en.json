@@ -39,7 +39,8 @@
     "waiting": "Waiting for headsetcontrol to report the device...",
     "write-only-note": "The headset cannot report these settings back, so the values shown are the last ones applied from here.",
     "tool-missing": "headsetcontrol was not found. Install it to see this headset.",
-    "defaults-note": "These are defaults, not readings: the headset cannot report its settings back, and nothing has been applied from here yet."
+    "defaults-note": "These are defaults, not readings: the headset cannot report its settings back, and nothing has been applied from here yet.",
+    "device-absent": "Headset not detected - these controls will work again when it reconnects."
   },
   "settings": {
     "hide-when-offline": {
@@ -53,7 +54,8 @@
     },
     "low-threshold": {
       "label": "Low battery threshold",
-      "desc": "Colour the widget as low battery at or below this level."
+      "desc": "Colour the widget as low battery at or below this level.",
+      "value": "{count}%"
     }
   }
 }

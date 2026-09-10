@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
 import qs.Commons
 import qs.Widgets
 
@@ -8,7 +7,6 @@ ColumnLayout {
   id: root
 
   property var pluginApi: null
-  property ShellScreen screen
 
   // pluginSettings already has the manifest defaults merged in by PluginService before
   // the api object reaches a plugin, so one literal fallback is all that is needed.
@@ -65,7 +63,10 @@ ColumnLayout {
       to: 600
       value: root.pollIntervalSeconds
       stepSize: 15
-      onValueChanged: {
+      // onMoved, not onValueChanged: the latter also fires when the binding sets value
+      // while the dialog is being built, breaking that binding before the user touches
+      // anything and leaving the property assigning to itself.
+      onMoved: {
         root.pollIntervalSeconds = value;
       }
     }
@@ -83,7 +84,9 @@ ColumnLayout {
       }
 
       NText {
-        text: root.lowThreshold + "%"
+        text: root.tr("settings.low-threshold.value", {
+          "count": root.lowThreshold
+        })
         color: Color.mOnSurface
       }
     }
@@ -94,7 +97,7 @@ ColumnLayout {
       to: 50
       value: root.lowThreshold
       stepSize: 5
-      onValueChanged: {
+      onMoved: {
         root.lowThreshold = value;
       }
     }
@@ -114,6 +117,10 @@ ColumnLayout {
     pluginApi?.mainInstance?.refresh();
 
     Logger.i("HeadsetControl", "Settings saved");
-    pluginApi.closePanel(root.screen);
+    // No closePanel() here. NPluginSettingsPopup passes only pluginApi to this file, so
+    // screen is always undefined, and closePanel(undefined) resolves to the first panel
+    // of that name on any screen - closing the headset panel instead. The popup has its
+    // own Close button and is not meant to close on Apply. (update-count does this too;
+    // do not copy it back.)
   }
 }

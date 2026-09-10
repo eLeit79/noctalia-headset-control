@@ -11,14 +11,17 @@ everything lives), `headset-control/README.md` is the documentation that ships w
 plugin. Prefer putting anything a user would read in one of those and linking to it rather
 than duplicating.
 
-Built and tested against noctalia-shell 4.7.7-3, `headsetcontrol` 4.0.0, niri/Wayland on
-CachyOS. Test hardware: **HyperX Cloud Alpha Wireless**, USB id `0x03f0:0x098d`, reporting
+Built and tested against noctalia-shell 4.7.7-3, `headsetcontrol` 4.0.0 (the package
+version; the binary self-reports `0.0.0-unknown`, which looks like a contradiction and is
+not one), niri/Wayland on CachyOS. Test hardware: **HyperX Cloud Alpha Wireless**, USB id `0x03f0:0x098d`, reporting
 `CAP_SIDETONE`, `CAP_BATTERY_STATUS`, `CAP_INACTIVE_TIME`, `CAP_VOICE_PROMPTS`. No other
 headset has ever been attached, but the capability gating is no longer unexercised: it was
 tested on 2026-09-10 by putting a stub `headsetcontrol` on the shell's `PATH` and feeding
 it scenarios for other devices, which found three real bugs (see below). That harness is
 committed as `test/` — run `./test/run.sh` after touching anything capability-related.
-`Main.qml` logs its derived state at debug level for it to read.
+`Main.qml` logs its derived state at debug level for it to read. `./test/runtime.sh` is the
+other half and much cheaper: it loads `Main.qml` alone under `qs -p` with a stub that can
+be made to fail, so it restarts nothing. Run it after touching `Main.qml`.
 
 ## Git workflow
 
@@ -49,7 +52,8 @@ README.md              repo landing page: what this is, install, layout (repo-on
 registry.json          the index a noctalia plugin source must expose (repo-only)
 install.sh             wires the package into ~/.config/noctalia/plugins (repo-only)
 CLAUDE.md              this file (repo-only)
-test/                  stub headsetcontrol + capability scenarios (repo-only)
+LICENSE                MIT (repo-only; the package carries its own copy)
+test/                  run.sh capability scenarios + runtime.sh failure tests (repo-only)
 headset-control/       THE PACKAGE — only this is ever shipped to users
   manifest.json        plugin id, version, entryPoints, defaultSettings
   Main.qml             headless logic: polls battery, exposes state, applies settings, IPC
@@ -58,6 +62,8 @@ headset-control/       THE PACKAGE — only this is ever shipped to users
   Settings.qml         noctalia's per-widget settings page (poll interval, thresholds)
   i18n/en.json         user-visible strings
   README.md            user-facing docs
+  LICENSE              MIT, shipped with the package
+  preview.png          screenshot for the README and the upstream listing
 ```
 
 **The split is load-bearing, not tidiness.** Installing a plugin copies its directory
@@ -65,8 +71,9 @@ verbatim — see *Publishing* — so anything inside `headset-control/` ships to
 Development-only material must live beside it, never in it.
 
 `entryPoints` in `manifest.json` maps roles to those filenames. The names are technically
-free-form, but `Main`/`BarWidget`/`Panel`/`Settings` is the convention 98 of 99 official
-plugins follow — keep it.
+free-form, but `Main`/`BarWidget`/`Panel`/`Settings` is the convention 129 of the 132
+upstream plugins follow (counted 2026-09-10; the exceptions are
+`battery-and-power-management`, `noctalia-supergfxctl` and `thinkpad-fan`) — keep it.
 
 ## Architecture
 
@@ -180,8 +187,10 @@ never finished — check `pgrep -a headsetcontrol` for a stray.
 There is no build step and no packaging format. A **plugin source is a git repo** that has:
 
 1. `registry.json` at its root — `{"plugins": [{id, name, version, author, description,
-   tags, official, minNoctaliaVersion, lastUpdated}]}`. This is the index the shell fetches
-   (sparse checkout of that one file).
+   tags, official, minNoctaliaVersion, lastUpdated, license, repository}]}`. This is the
+   index the shell fetches (sparse checkout of that one file). The shell consumes none of
+   `license`/`repository`, but every one of the 132 upstream entries carries `license` and
+   130 carry `repository`, so an upstream submission without them stands out.
 2. **one directory per plugin, named exactly the manifest `id`.**
 
 Installing plugin `X` sparse-checks-out the `X/` directory and runs, in effect:
@@ -203,8 +212,21 @@ Two ways to publish, both needing that layout:
   `noctalia-dev/noctalia-plugins`.
 
 `registry.json` and `manifest.json` both carry the version, and the update check compares
-the registry's against the installed manifest's — so **bump both together** or update
-detection silently breaks. `install.sh` warns on drift.
+the registry's against the installed manifest's (`compareVersions(available, current) > 0`,
+`PluginService.qml:1417`) — so **bump both together** or update detection silently breaks.
+`install.sh` warns on drift, and on a registry id that does not match the package
+directory, which would make a remote install fetch nothing.
+
+**A version that does not move is the same failure as a version that drifts.** v1.0.0 was
+tagged on a commit that predated the whole publishable layout, and then 27 commits of
+fixes shipped under that same number — meaning no installed user would ever have been
+offered any of them. Bump both files in the commit that ships the change, and tag *that*
+commit.
+
+**`updatePlugin` never clears the destination.** It reuses `installPlugin`, whose command
+is `mkdir -p <dir> && rm -f settings.json && cp -r <src>/. <dir>/` (`PluginService.qml:444`)
+— so a file renamed or dropped in a later version stays on users' machines forever, and
+will still be loaded. Renaming a packaged file is therefore not a free change.
 
 ## Traps that have already been walked into
 
@@ -223,6 +245,27 @@ first; keep it that way.
 pipeline returns 141, and `set -e` aborts with no message. Use `find -print -quit` or read
 the whole value and trim.
 
+**Quickshell's `Process` says nothing at all when a command cannot start.** No `exited`,
+no `stdout.onStreamFinished` — `running` just goes back to false. Anything built on those
+two signals is therefore blind to a missing binary, which is how "headsetcontrol is not
+installed" used to render as "Waiting for headsetcontrol to report the device…" forever
+while setters persisted values that reached nothing. `running` still reads true
+synchronously after the assignment even for a command that cannot start, so this cannot be
+detected inline; `startCheck` in `Main.qml` defers the check instead. `test/runtime.sh`
+covers it.
+
+**Killing an in-flight process reports a failure that is not one.** `run()` stops a
+running command before starting its replacement, and the killed one exits 15 (SIGTERM),
+which looked exactly like "the value was rejected" and reverted the value the replacement
+was busy applying. Hence the `superseded` flag. A `running = false` is only a request, too:
+a process ignoring SIGTERM needs `signal(9)`, which the poll watchdog escalates to.
+
+**`closePanel(undefined)` does not do nothing.** `PanelService.getPanel(name, null)` falls
+back to the first registered panel of that name on any screen (`:161-171`). A plugin's
+`Settings.qml` is handed only `pluginApi` by `NPluginSettingsPopup` — never a `screen` —
+so `closePanel(root.screen)` there closes an unrelated panel. `update-count` still does
+this; along with `mOnPrimary`, that is the second thing not to copy from it.
+
 **The external command is not to be trusted.** Every `headsetcontrol` call checks what
 happened: the poll has a 15 s watchdog (its `if (poll.running) return` guard would
 otherwise latch forever on a hung process and silently kill all polling), setters check
@@ -230,14 +273,19 @@ their exit code and revert the persisted value when the command fails, the IPC e
 points reject non-numeric input before it reaches `settings.json` or the command line, and
 a poll with empty stdout marks the tool missing rather than looking like a missing headset.
 A working `headsetcontrol` always prints JSON — it exits non-zero with no device attached,
-so the exit code alone proves nothing. `test/` has stubs for exercising all of this.
+so the exit code alone proves nothing. `./test/runtime.sh` exercises all of this against a
+stub that fails on demand, and is confirmed to fail against the code from before these
+were fixed.
 
 ## Install wiring
 
 `./install.sh` makes `~/.config/noctalia/plugins/headset-control` a **real directory
 holding one symlink per packaged file** (`--copy` copies instead, for a machine with no
-checkout). It installs only the package directory, and finds it by looking for the
-`*/manifest.json` whose directory name matches the manifest `id`.
+checkout). It installs only the package directory: the sole `*/manifest.json` if there is
+one, otherwise it lists the candidates and asks for a name (`./install.sh [--copy] <pkg>`),
+and it refuses a package whose directory name is not the manifest `id`. The destination
+follows `NOCTALIA_CONFIG_DIR`, then `XDG_CONFIG_HOME`, then `HOME` — the same order
+`Commons/Settings.qml:31` reads them in.
 
 Don't symlink the whole project folder in. `PluginRegistry.getPluginSettingsFile()`
 hardcodes runtime settings to `<pluginsDir>/<id>/settings.json` (`PluginRegistry.qml:577`),
@@ -247,8 +295,8 @@ the plugin dir and the project stays clean; `.gitignore` still lists `settings.j
 as a guard against reverting to a directory symlink.
 
 Per-file symlinks are a supported arrangement, not a trick: noctalia's hot-reload watcher
-globs the plugin dir with `find -L … -name '*.qml'` and its comment says this is *because*
-plugins get symlinked in (`PluginService.qml:1844`). Re-run `install.sh` when you add,
+globs the plugin dir with `find -L … -name '*.qml'` (`PluginService.qml:1844`) and the
+comment just above it, at `:1832`, says this is *because* plugins get symlinked in. Re-run `install.sh` when you add,
 rename or remove a file — plain edits need nothing.
 
 Three things register the plugin. If it stops appearing, check all three:
@@ -257,8 +305,22 @@ Three things register the plugin. If it stops appearing, check all three:
    `manifest.json` whose `id` matches the directory name.
 2. `~/.config/noctalia/plugins.json` → `states["headset-control"] = {"enabled": true}`.
    Local plugins need no `sourceUrl`; without one the registry uses the plain id as key.
+   (The live config here has `sourceUrl` pointing at `noctalia-dev/noctalia-plugins`,
+   which does not contain this plugin. It works — `generateCompositeKey` returns the plain
+   id for that URL as well — but the attribution is wrong.)
 3. `~/.config/noctalia/settings.json` → an entry `{"id": "plugin:headset-control", ...}`
    in `bar.widgets.right`.
+
+**All three names above hold only for a local install.** A plugin installed from a
+non-official *source* is keyed `<6 hex of sha256(sourceUrl)>:<id>`
+(`PluginRegistry.generateCompositeKey`, `:36-42`; only
+`https://github.com/noctalia-dev/noctalia-plugins` keeps the plain id). That composite key
+is the directory name (`getPluginDir`, `:571`), the `plugins.json` key, and the widget id
+(`"plugin:" + compositeKey`, `PluginService.qml:201`) — so a user who installed this repo
+as a source has `plugins/a1b2c3:headset-control` and an IPC target of
+`plugin:a1b2c3:headset-control`. Two consequences: every IPC line below is the dev-install
+form, and a dev install alongside a source install gives **two directories, both loaded**,
+each polling and each registering a bar widget. `install.sh` does not detect the sibling.
 
 Config backups from the original install work: `~/.config/noctalia/*.bak-20260910-*`.
 

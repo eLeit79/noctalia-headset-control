@@ -1,7 +1,7 @@
 {
   "id": "headset-control",
   "name": "Headset Control",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minNoctaliaVersion": "4.7.0",
   "author": "men",
   "license": "MIT",
@@ -27,7 +27,8 @@
       "lowThreshold": 20,
       "sidetone": 0,
       "voicePrompts": true,
-      "inactiveTime": 0
+      "inactiveTime": 0,
+      "controlsApplied": false
     }
   }
 }

@@ -5,8 +5,10 @@ Shows a USB gaming headset's battery level in the noctalia bar, using
 
 ![The panel open above the bar widget](preview.png)
 
-Written for a HyperX Cloud Alpha Wireless (`0x03f0:0x098d`), but works with any
-headset `headsetcontrol` reports a `battery` capability for.
+Written for a HyperX Cloud Alpha Wireless (`0x03f0:0x098d`), but nothing is tied to that
+device: every control is offered on whatever the connected headset reports. A headset with
+no battery capability is supported too — it gets the icon alone in the bar, and keeps
+whichever controls it does support.
 
 ## Requirements
 
@@ -23,7 +25,8 @@ at all, the panel says so rather than waiting forever for a device.
 
 - Polls `headsetcontrol -b -o json` on a timer (default 60s).
 - Shows a headset icon plus the battery percentage.
-- Turns the label red at or below the low-battery threshold (default 20%).
+- Turns the icon and label red at or below the low-battery threshold (default 20%), and
+  switches to a warning icon so the cue is not colour alone.
 - Shows a charging icon while charging.
 - Hides itself while the headset is off or disconnected (configurable).
 - Left-click opens a panel with mic monitoring (sidetone), auto power-off and
@@ -42,7 +45,7 @@ control is shown only if the connected device reports the matching capability:
 
 | Control | Requires |
 |---|---|
-| Battery readout | `CAP_BATTERY_STATUS` |
+| Battery readout (percentage in the bar) | `CAP_BATTERY_STATUS` |
 | Hear yourself (sidetone) | `CAP_SIDETONE` |
 | Auto power-off | `CAP_INACTIVE_TIME` |
 | Voice prompts | `CAP_VOICE_PROMPTS` |
@@ -66,8 +69,8 @@ behaving oddly, not an out-of-range rejection. The reference GUI for this headse
 only ever sends the on/off commands (`0x21bb1001` / `0x21bb1000`) and leaves its
 level-response handler an empty stub, which matches that behaviour. The panel
 therefore exposes sidetone as a toggle for this product id (`0x098d`), enabling it
-at level 64. Any other device gets a 0-127 level slider, on the assumption that it
-honours levels until someone measures otherwise.
+at level 64. Any other device gets a 0-128 level slider — the range `headsetcontrol`
+documents — on the assumption that it honours levels until someone measures otherwise.
 
 To experiment with raw levels anyway:
 
@@ -76,6 +79,11 @@ To experiment with raw levels anyway:
 Refresh can also be triggered externally:
 
     qs -c noctalia-shell ipc call plugin:headset-control refresh
+
+If you installed this from a plugin **source** rather than a checkout, noctalia keys the
+plugin by source and the IPC target becomes `plugin:<hash>:headset-control`, where the
+hash is the first six hex of the source URL's SHA-256 — the directory name under
+`~/.config/noctalia/plugins` shows it.
 
 ## Translations
 
