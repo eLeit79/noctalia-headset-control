@@ -110,8 +110,9 @@ Do not "fix" these; reverting them re-introduces bugs.
 **Sidetone on the Cloud Alpha Wireless (`0x098d`) is on/off only.** `headsetcontrol -s N`
 sends an enable command (`0x21bb1001`) then a raw, unscaled level byte (`0x21bb11 <N>`).
 The level byte has no audible effect — verified by sweeping 1, 2, 3, 4, 5, 6, 8, 10, 12,
-16, 24, 32, 48, 64, 96 and 127 while talking — and `128` (`0x80`) is out of range and
-silences sidetone entirely. The reference GUI for this headset agrees: it only ever sends
+16, 24, 32, 48, 64, 96 and 127 while talking — and `128` silences sidetone entirely
+(128 is *inside* the range `headsetcontrol --help` documents, `-s <0-128>`, so this is
+device behaviour and not a rejected value; the README used to claim otherwise). The reference GUI for this headset agrees: it only ever sends
 the on/off commands (`0x21bb1001` / `0x21bb1000`) and leaves its level-response handler
 (`case 0x11`) an empty stub. So `0x098d` gets a **toggle** (enabling at level 64) and
 every other device gets a 0-127 slider, on the assumption other hardware honours levels
@@ -200,6 +201,32 @@ Two ways to publish, both needing that layout:
 `registry.json` and `manifest.json` both carry the version, and the update check compares
 the registry's against the installed manifest's — so **bump both together** or update
 detection silently breaks. `install.sh` warns on drift.
+
+## Traps that have already been walked into
+
+**Never colour text with `Color.mOnPrimary` unless it sits on a primary-coloured fill.**
+`mOnPrimary` and `mSurface` are defined as the *same value* in the light variants of Ayu,
+Catppuccin, Gruvbox, Kanagawa, Nord and Tokyo-Night (and in six dark variants), so text
+using it on a surface is invisible. The settings page did this and nobody saw it because
+this machine runs a dark scheme. `update-count` still has the bug — do not copy from it.
+
+**`ln -sfn` does not replace a real directory.** It silently switches to its "create the
+link inside the directory" form, so re-linking over a previously copied `i18n/` yields
+`i18n/i18n` and keeps serving the stale translations. `install.sh` clears each destination
+first; keep it that way.
+
+**`cmd | head -1` is a hazard under `set -o pipefail`** — the left side takes SIGPIPE, the
+pipeline returns 141, and `set -e` aborts with no message. Use `find -print -quit` or read
+the whole value and trim.
+
+**The external command is not to be trusted.** Every `headsetcontrol` call checks what
+happened: the poll has a 15 s watchdog (its `if (poll.running) return` guard would
+otherwise latch forever on a hung process and silently kill all polling), setters check
+their exit code and revert the persisted value when the command fails, the IPC entry
+points reject non-numeric input before it reaches `settings.json` or the command line, and
+a poll with empty stdout marks the tool missing rather than looking like a missing headset.
+A working `headsetcontrol` always prints JSON — it exits non-zero with no device attached,
+so the exit code alone proves nothing. `test/` has stubs for exercising all of this.
 
 ## Install wiring
 

@@ -1,5 +1,4 @@
 import QtQuick
-import Quickshell
 import Quickshell.Io
 import qs.Commons
 
@@ -8,15 +7,15 @@ Item {
 
   property var pluginApi: null
 
-  readonly property var defaults: pluginApi?.manifest?.metadata?.defaultSettings
-
   readonly property int pollIntervalSeconds: root.setting("pollIntervalSeconds", 60)
 
   // Control values are remembered here: headsetcontrol can set sidetone, voice
   // prompts and inactive time on this device but cannot read them back, so the
   // last applied value is the only state available.
   readonly property int sidetone: root.setting("sidetone", 0)
-  readonly property int sidetoneOnLevel: root.setting("sidetoneOnLevel", 64)
+  // The level sent when enabling sidetone on a device that ignores levels. A constant,
+  // not a setting: nothing has ever written it, so a persisted copy could only drift.
+  readonly property int sidetoneOnLevel: 64
   readonly property bool sidetoneEnabled: root.sidetone > 0
   readonly property int inactiveTime: root.setting("inactiveTime", 0)
   readonly property bool voicePrompts: root.setting("voicePrompts", true) === true
@@ -26,6 +25,16 @@ Item {
   // sleeps.
   property var capabilities: []
   property string productId: ""
+
+  // False once a poll comes back with nothing on stdout, which is what a missing or
+  // broken headsetcontrol looks like. A working one always prints JSON, even with no
+  // device attached (it exits non-zero, which is why the exit code alone proves nothing).
+  property bool toolAvailable: true
+
+  // Whether any control has ever been applied from here. Until one has, the values shown
+  // are the plugin's defaults and may not match the headset at all, which the panel has
+  // to say rather than implying they were read back.
+  readonly property bool controlsApplied: root.setting("controlsApplied", false) === true
 
   readonly property bool hasBattery: root.capabilities.indexOf("CAP_BATTERY_STATUS") !== -1
   readonly property bool hasSidetone: root.capabilities.indexOf("CAP_SIDETONE") !== -1
@@ -48,18 +57,18 @@ Item {
 
   Component.onCompleted: root.refresh()
 
+  // pluginSettings arrives with the manifest defaults already merged in (PluginService
+  // does that before handing the api to a plugin), so this only needs a literal fallback.
   function setting(key, fallback) {
     const v = pluginApi?.pluginSettings ? pluginApi.pluginSettings[key] : undefined;
-    if (v !== undefined && v !== null)
-      return v;
-    const d = root.defaults ? root.defaults[key] : undefined;
-    return (d !== undefined && d !== null) ? d : fallback;
+    return (v !== undefined && v !== null) ? v : fallback;
   }
 
-  function persist(key, value) {
+  function persist(values) {
     if (!pluginApi)
       return;
-    pluginApi.pluginSettings[key] = value;
+    for (var key in values)
+      pluginApi.pluginSettings[key] = values[key];
     pluginApi.saveSettings();
   }
 
@@ -81,10 +90,28 @@ Item {
   }
 
   function refresh() {
+    // The guard stops overlapping polls, so it must never latch: if headsetcontrol hangs
+    // (a wedged dongle will do it), every later refresh, the timer and the IPC would all
+    // become silent no-ops until the shell restarted. The watchdog below breaks that.
     if (poll.running)
       return;
     poll.command = ["headsetcontrol", "-b", "-o", "json"];
     poll.running = true;
+    pollWatchdog.restart();
+  }
+
+  Timer {
+    id: pollWatchdog
+    interval: 15000
+    repeat: false
+    onTriggered: {
+      if (!poll.running)
+        return;
+      Logger.w("HeadsetControl", "headsetcontrol did not finish within", interval / 1000, "s - killing it");
+      poll.running = false;
+      root.clear();
+      root.logState("poll-timeout");
+    }
   }
 
   // Debug-level, so it is silent in normal use and visible with NOCTALIA_DEBUG=1. The
@@ -97,13 +124,36 @@ Item {
     root.deviceFound = false;
     root.batteryLevel = -1;
     root.batteryStatus = "BATTERY_UNAVAILABLE";
+    // Capabilities and productId are deliberately kept so the panel does not empty out
+    // while the headset sleeps, but the name must go: clear() only runs when nothing is
+    // enumerated at all, and naming a device that is not there is simply wrong.
+    root.deviceName = "";
   }
 
   Process {
     id: poll
 
+    onExited: (exitCode, exitStatus) => {
+      // A non-zero code is normal — headsetcontrol exits 1 when no device is attached
+      // while still printing valid JSON — so the code is only used to stop the watchdog.
+      pollWatchdog.stop();
+    }
+
     stdout: StdioCollector {
       onStreamFinished: {
+        pollWatchdog.stop();
+        if (!text || text.trim() === "") {
+          // A working headsetcontrol always prints JSON. Nothing on stdout means it is
+          // missing or broken, which the panel says outright instead of pretending to
+          // still be waiting for a device to appear.
+          if (root.toolAvailable)
+            Logger.w("HeadsetControl", "headsetcontrol produced no output - is it installed?");
+          root.toolAvailable = false;
+          root.clear();
+          root.logState("no-output");
+          return;
+        }
+        root.toolAvailable = true;
         try {
           const data = JSON.parse(text);
           const dev = (data.devices && data.devices.length > 0) ? data.devices[0] : null;
@@ -123,7 +173,8 @@ Item {
           // left the previous device's name and capabilities on display.
           if (dev.battery) {
             root.batteryStatus = dev.battery.status || "BATTERY_UNAVAILABLE";
-            root.batteryLevel = (typeof dev.battery.level === "number") ? dev.battery.level : -1;
+            // Clamped: a device reporting a bogus level would otherwise render as "255%".
+            root.batteryLevel = (typeof dev.battery.level === "number") ? Math.max(-1, Math.min(100, Math.round(dev.battery.level))) : -1;
           } else {
             root.batteryStatus = "BATTERY_UNAVAILABLE";
             root.batteryLevel = -1;
@@ -140,11 +191,39 @@ Item {
   //
   // ------ Controls ------
   //
+  // Applies a control and remembers what to put back if headsetcontrol rejects it. The
+  // value is persisted up front so the UI responds immediately; controlFinished() undoes
+  // that if the command fails, rather than leaving the panel asserting a setting the
+  // headset never received.
+  function applyControl(proc, key, value, cmd, label) {
+    proc.revertKey = key;
+    proc.revertValue = root.setting(key, value);
+    root.persist({
+      [key]: value,
+      "controlsApplied": true
+    });
+    root.run(proc, cmd);
+    Logger.i("HeadsetControl", label, value);
+  }
+
+  function controlFinished(proc, exitCode) {
+    if (exitCode === 0) {
+      proc.revertKey = "";
+      return;
+    }
+    Logger.w("HeadsetControl", "headsetcontrol exited", exitCode, "applying", proc.revertKey, "- reverting to", proc.revertValue);
+    if (proc.revertKey !== "")
+      root.persist({
+        [proc.revertKey]: proc.revertValue
+      });
+    proc.revertKey = "";
+  }
+
   function applySidetone(value) {
+    if (!isFinite(value))
+      return;
     const v = Math.round(Math.max(0, Math.min(127, value)));
-    root.persist("sidetone", v);
-    root.run(sidetoneProc, ["headsetcontrol", "-s", String(v)]);
-    Logger.i("HeadsetControl", "Sidetone set to", v);
+    root.applyControl(sidetoneProc, "sidetone", v, ["headsetcontrol", "-s", String(v)], "Sidetone set to");
   }
 
   // Verified by sweeping levels 1..127 on a Cloud Alpha Wireless: the level byte
@@ -156,28 +235,35 @@ Item {
 
   function applyVoicePrompts(enabled) {
     const on = enabled === true;
-    root.persist("voicePrompts", on);
-    root.run(voiceProc, ["headsetcontrol", "-v", on ? "1" : "0"]);
-    Logger.i("HeadsetControl", "Voice prompts set to", on);
+    root.applyControl(voiceProc, "voicePrompts", on, ["headsetcontrol", "-v", on ? "1" : "0"], "Voice prompts set to");
   }
 
   function applyInactiveTime(minutes) {
+    if (!isFinite(minutes))
+      return;
     const v = Math.round(Math.max(0, Math.min(90, minutes)));
-    root.persist("inactiveTime", v);
-    root.run(inactiveProc, ["headsetcontrol", "-i", String(v)]);
-    Logger.i("HeadsetControl", "Auto power-off set to", v, "minutes");
+    root.applyControl(inactiveProc, "inactiveTime", v, ["headsetcontrol", "-i", String(v)], "Auto power-off set to");
   }
 
   Process {
     id: sidetoneProc
+    property string revertKey: ""
+    property var revertValue: null
+    onExited: (exitCode, exitStatus) => root.controlFinished(sidetoneProc, exitCode)
   }
 
   Process {
     id: voiceProc
+    property string revertKey: ""
+    property var revertValue: null
+    onExited: (exitCode, exitStatus) => root.controlFinished(voiceProc, exitCode)
   }
 
   Process {
     id: inactiveProc
+    property string revertKey: ""
+    property var revertValue: null
+    onExited: (exitCode, exitStatus) => root.controlFinished(inactiveProc, exitCode)
   }
 
   //
@@ -191,7 +277,14 @@ Item {
     }
 
     function sidetone(level: string): void {
-      root.applySidetone(parseInt(level));
+      // Unvalidated input used to reach both settings.json and the command line: a
+      // non-numeric argument became NaN, persisted as null, and ran "headsetcontrol -s NaN".
+      const v = parseInt(level);
+      if (isNaN(v)) {
+        Logger.w("HeadsetControl", "ipc sidetone: not a number:", level);
+        return;
+      }
+      root.applySidetone(v);
     }
 
     function voicePrompts(enabled: string): void {
@@ -199,7 +292,12 @@ Item {
     }
 
     function inactiveTime(minutes: string): void {
-      root.applyInactiveTime(parseInt(minutes));
+      const v = parseInt(minutes);
+      if (isNaN(v)) {
+        Logger.w("HeadsetControl", "ipc inactiveTime: not a number:", minutes);
+        return;
+      }
+      root.applyInactiveTime(v);
     }
   }
 }

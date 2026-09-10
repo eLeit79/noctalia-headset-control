@@ -10,9 +10,11 @@ ColumnLayout {
   property var pluginApi: null
   property ShellScreen screen
 
-  property int pollIntervalSeconds: pluginApi?.pluginSettings?.pollIntervalSeconds || pluginApi?.manifest?.metadata?.defaultSettings?.pollIntervalSeconds || 60
-  property int lowThreshold: pluginApi?.pluginSettings?.lowThreshold || pluginApi?.manifest?.metadata?.defaultSettings?.lowThreshold || 20
-  property bool hideWhenOffline: pluginApi?.pluginSettings?.hideWhenOffline !== undefined ? pluginApi.pluginSettings.hideWhenOffline : true
+  // pluginSettings already has the manifest defaults merged in by PluginService before
+  // the api object reaches a plugin, so one literal fallback is all that is needed.
+  property int pollIntervalSeconds: pluginApi?.pluginSettings?.pollIntervalSeconds ?? 60
+  property int lowThreshold: pluginApi?.pluginSettings?.lowThreshold ?? 20
+  property bool hideWhenOffline: pluginApi?.pluginSettings?.hideWhenOffline ?? true
 
   spacing: Style.marginL
 
@@ -53,7 +55,7 @@ ColumnLayout {
         text: root.tr("settings.poll-interval.value", {
           "count": root.pollIntervalSeconds
         })
-        color: Settings.data.colorSchemes.darkMode ? Color.mOnSurface : Color.mOnPrimary
+        color: Color.mOnSurface
       }
     }
 
@@ -82,7 +84,7 @@ ColumnLayout {
 
       NText {
         text: root.lowThreshold + "%"
-        color: Settings.data.colorSchemes.darkMode ? Color.mOnSurface : Color.mOnPrimary
+        color: Color.mOnSurface
       }
     }
 
