@@ -14,6 +14,28 @@ CachyOS. Test hardware: **HyperX Cloud Alpha Wireless**, USB id `0x03f0:0x098d`,
 never run against a device with a different capability set — the gating is written but
 unexercised.
 
+## Git workflow
+
+`main` must always be in a working state, so it is never where development happens.
+
+1. **Branch from `main` before writing anything**: `git switch -c <topic>`.
+2. Work there. One branch can carry several changes — no need to merge after every small
+   thing — but **each significant feature or bugfix gets its own commit**, so it can be
+   read, reverted or cherry-picked on its own.
+3. When the work is done *and verified*, merge back and push:
+
+```sh
+git switch main && git merge --no-ff <topic> && git push && git branch -d <topic>
+```
+
+`--no-ff` is deliberate: it records the branch boundary even for a single commit, so a
+feature that later turns out to be wrong reverts as one unit. That recoverability is the
+whole point of the rule.
+
+Pushing merged `main` is part of this routine and needs no separate approval. Anything
+else outward-facing — force-pushing, rewriting published history, creating remotes or
+releases — still does.
+
 ## Layout
 
 ```
