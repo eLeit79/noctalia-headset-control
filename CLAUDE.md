@@ -317,6 +317,10 @@ headset-control`).
 
 ## Not yet done
 
+Nothing outstanding. If the plugin is to go upstream, that submission is the remaining
+step: copy `headset-control/` into `noctalia-dev/noctalia-plugins` along with a
+`registry.json` entry. Everything it required — i18n, a preview, a publishable layout — is
+in place.
 
 ## Screenshots
 
