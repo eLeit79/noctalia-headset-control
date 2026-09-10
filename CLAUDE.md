@@ -317,7 +317,24 @@ headset-control`).
 
 ## Not yet done
 
-- Optional: `preview.png` (official plugins ship one).
+
+## Screenshots
+
+`headset-control/preview.png` is repo-facing only — **the shell never renders it**; it is
+shown by the package README and by the upstream plugin listing. So keep it at native
+resolution rather than upscaling.
+
+`grim` and `slurp` are **not installed** on this machine. Captures come from niri instead:
+
+```sh
+niri msg action screenshot-screen   # whole focused screen -> ~/Pictures/Screenshots/
+```
+
+Then crop with PIL. Two things that matter when reshooting: the panel only anchors above
+the widget when it is opened by a real left-click (the `openPanel` IPC passes no anchor and
+centres it), and the panel closes on a click elsewhere but *not* on mere pointer movement —
+so click the widget, then move the pointer off it before capturing, or the cursor lands on
+the battery percentage.
 
 ## Why it's built this way
 

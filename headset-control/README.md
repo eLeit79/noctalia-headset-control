@@ -3,6 +3,8 @@
 Shows a USB gaming headset's battery level in the noctalia bar, using
 [`headsetcontrol`](https://github.com/Sapd/HeadsetControl).
 
+![The panel open above the bar widget](preview.png)
+
 Written for a HyperX Cloud Alpha Wireless (`0x03f0:0x098d`), but works with any
 headset `headsetcontrol` reports a `battery` capability for.
 
