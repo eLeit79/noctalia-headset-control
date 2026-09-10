@@ -5,8 +5,11 @@ bar, with a panel for sidetone, auto power-off and voice prompts. It drives the 
 through `headsetcontrol` (official `extra` repo package, not the AUR).
 
 This file is the project's context of record — architecture, measured constraints, the dev
-loop and the reasoning behind past decisions. `README.md` is the user-facing half; prefer
-putting anything a user would read there and linking rather than duplicating.
+loop and the reasoning behind past decisions. The two READMEs are the user-facing half —
+`README.md` at the root is the repo's shop window (what this is, how to install it, where
+everything lives), `headset-control/README.md` is the documentation that ships with the
+plugin. Prefer putting anything a user would read in one of those and linking to it rather
+than duplicating.
 
 Built and tested against noctalia-shell 4.7.7-3, `headsetcontrol` 4.0.0, niri/Wayland on
 CachyOS. Test hardware: **HyperX Cloud Alpha Wireless**, USB id `0x03f0:0x098d`, reporting
@@ -42,6 +45,7 @@ releases — still does.
 ## Layout
 
 ```
+README.md              repo landing page: what this is, install, layout (repo-only)
 registry.json          the index a noctalia plugin source must expose (repo-only)
 install.sh             wires the package into ~/.config/noctalia/plugins (repo-only)
 CLAUDE.md              this file (repo-only)
