@@ -10,9 +10,10 @@ putting anything a user would read there and linking rather than duplicating.
 
 Built and tested against noctalia-shell 4.7.7-3, `headsetcontrol` 4.0.0, niri/Wayland on
 CachyOS. Test hardware: **HyperX Cloud Alpha Wireless**, USB id `0x03f0:0x098d`, reporting
-`CAP_SIDETONE`, `CAP_BATTERY_STATUS`, `CAP_INACTIVE_TIME`, `CAP_VOICE_PROMPTS`. It has
-never run against a device with a different capability set — the gating is written but
-unexercised.
+`CAP_SIDETONE`, `CAP_BATTERY_STATUS`, `CAP_INACTIVE_TIME`, `CAP_VOICE_PROMPTS`. No other
+headset has ever been attached, but the capability gating is no longer unexercised: it was
+tested on 2026-09-10 by putting a stub `headsetcontrol` on the shell's `PATH` and feeding
+it scenarios for other devices, which found two real bugs (see below).
 
 ## Git workflow
 
@@ -113,6 +114,34 @@ offline, so the panel doesn't empty out while it sleeps.
 (`0x21bb12 <minutes>`, 0 = never, clamped 0-90 here). The plugin's own 60-second battery
 polling demonstrably does *not* keep the headset awake — it still powered off on schedule.
 Host audio probably does, but that was never tested; don't state it as fact.
+
+**What `headsetcontrol -b -o json` actually reports**, measured against the real device:
+
+| State | `device_count` | per-device `status` | `battery` |
+|---|---|---|---|
+| Headset on | 1 | `success` | `BATTERY_AVAILABLE` + level |
+| Headset off, dongle plugged | 1 | `partial` | `BATTERY_UNAVAILABLE`, level -1, plus `errors.battery` |
+| Dongle unplugged | 0 | — | — (and exit code 1) |
+
+**What is enumerated is the dongle, not the headset.** A wireless headset stays in the
+device list while powered off, so "a device is listed" never means "the headset is awake".
+Exit code is 1 when nothing is found; the plugin ignores the code and parses stdout, which
+is valid JSON in every case above.
+
+**A device that reports no battery is still a device.** Its identity and capabilities must
+be read so the panel can offer what it does support; only the battery fields go
+unavailable. Conflating "no battery object" with "no device" hid every control on such a
+headset *and* left the previous device's name and capabilities on display. Equally,
+`deviceFound` — not `capabilities.length` — is what distinguishes "nothing has reported
+yet" from "this device reports nothing adjustable".
+
+**A device with no battery capability shows the icon alone** in the bar, never a
+percentage and never the crossed-out battery icon (which reads as "battery dead" rather
+than "no battery to report"). Its visibility can only follow whether the device is
+enumerated, so **sleep cannot be detected for such a device** — we have no signal for it.
+Devices that do report battery are unaffected: availability of a reading is still what
+hides the widget. Retaining capabilities while offline is what keeps an unplugged dongle
+on the hidden path rather than the icon-only one.
 
 **A battery reading that never moves is normal, not a stuck poll.** The Cloud Alpha
 Wireless is rated ~300 h, so 1% is roughly 3 h of use and the value legitimately sits
