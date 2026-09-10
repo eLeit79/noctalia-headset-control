@@ -317,8 +317,6 @@ headset-control`).
 
 ## Not yet done
 
-- Optional: a "Hear yourself" quick-toggle in the bar widget's right-click menu, so
-  sidetone can be flipped without opening the panel.
 - Optional: `preview.png` (official plugins ship one).
 
 ## Why it's built this way
