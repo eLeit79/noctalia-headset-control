@@ -46,7 +46,6 @@ Item {
   readonly property bool isVisible: (root.hasBattery ? root.online : root.devicePresent) || !root.hideWhenOffline
 
   visible: root.isVisible
-  opacity: root.isVisible ? 1.0 : 0.0
 
   readonly property real contentWidth: isVertical ? root.capsuleHeight : layout.implicitWidth + Style.marginS * 2
   readonly property real contentHeight: isVertical ? layout.implicitHeight + Style.marginS * 2 : root.capsuleHeight
@@ -76,6 +75,9 @@ Item {
       return "battery-off";
     if (root.charging)
       return "battery-charging";
+    // Low battery is otherwise signalled by colour alone, which not every user can see.
+    if (root.isLow)
+      return "battery-exclamation";
     return "bt-device-headset";
   }
 
@@ -199,6 +201,8 @@ Item {
   onOnlineChanged: if (root.hovered)
     root.buildTooltip()
   onChargingChanged: if (root.hovered)
+    root.buildTooltip()
+  onDeviceNameChanged: if (root.hovered)
     root.buildTooltip()
 
   function buildTooltip() {
