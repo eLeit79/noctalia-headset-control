@@ -101,7 +101,7 @@ Item {
         try {
           const data = JSON.parse(text);
           const dev = (data.devices && data.devices.length > 0) ? data.devices[0] : null;
-          if (!dev || !dev.battery) {
+          if (!dev) {
             root.clear();
             return;
           }
@@ -109,8 +109,18 @@ Item {
           root.deviceName = dev.device || "";
           root.capabilities = dev.capabilities || [];
           root.productId = dev.id_product || "";
-          root.batteryStatus = dev.battery.status || "BATTERY_UNAVAILABLE";
-          root.batteryLevel = (typeof dev.battery.level === "number") ? dev.battery.level : -1;
+          // A device that reports no battery is still a device: its identity and
+          // capabilities must be read so the panel can offer the controls it does
+          // support. Only the battery fields go unavailable. Treating a missing
+          // battery as a missing device hid every control on such a headset, and
+          // left the previous device's name and capabilities on display.
+          if (dev.battery) {
+            root.batteryStatus = dev.battery.status || "BATTERY_UNAVAILABLE";
+            root.batteryLevel = (typeof dev.battery.level === "number") ? dev.battery.level : -1;
+          } else {
+            root.batteryStatus = "BATTERY_UNAVAILABLE";
+            root.batteryLevel = -1;
+          }
         } catch (e) {
           root.clear();
           Logger.w("HeadsetControl", "Cannot parse headsetcontrol output:", e);
