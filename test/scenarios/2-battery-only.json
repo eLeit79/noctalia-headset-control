@@ -16,7 +16,7 @@
         "CAP_BATTERY_STATUS"
       ],
       "capabilities_str": [
-        "battery status"
+        "battery"
       ],
       "battery": {
         "status": "BATTERY_AVAILABLE",

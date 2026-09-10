@@ -6,7 +6,7 @@
   "device_count": 1,
   "devices": [
     {
-      "status": "failure",
+      "status": "partial",
       "device": "Sleeping Headset",
       "vendor": "Test Vendor",
       "product": "Sleeping Headset",
@@ -23,7 +23,14 @@
         "battery",
         "inactive time",
         "voice prompts"
-      ]
+      ],
+      "battery": {
+        "status": "BATTERY_UNAVAILABLE",
+        "level": -1
+      },
+      "errors": {
+        "battery": "Error while reading battery status"
+      }
     }
   ]
 }
