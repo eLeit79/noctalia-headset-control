@@ -198,7 +198,6 @@ headset-control`).
 
 ## Not yet done
 
-- `git init` — the folder is not yet under version control.
 - `i18n/en.json` + switch inline English strings to `pluginApi.tr(...)`, which is what the
   official plugins do. Needed before submitting to `noctalia-plugins`.
 - Optional: a "Hear yourself" quick-toggle in the bar widget's right-click menu, so
