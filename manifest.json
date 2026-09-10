@@ -1,7 +1,7 @@
 {
   "id": "headset-control",
   "name": "Headset Control",
-  "version": "2.1.0",
+  "version": "1.0.0",
   "minNoctaliaVersion": "4.0.0",
   "author": "men",
   "license": "MIT",
