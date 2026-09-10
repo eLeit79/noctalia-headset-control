@@ -1,0 +1,27 @@
+{
+  "name": "HeadsetControl",
+  "version": "0.0.0-unknown",
+  "api_version": "1.4",
+  "hidapi_version": "0.15.0",
+  "device_count": 1,
+  "devices": [
+    {
+      "status": "success",
+      "device": "Battery Only Headset",
+      "vendor": "Test Vendor",
+      "product": "Battery Only Headset",
+      "id_vendor": "0x03f0",
+      "id_product": "0x1111",
+      "capabilities": [
+        "CAP_BATTERY_STATUS"
+      ],
+      "capabilities_str": [
+        "battery status"
+      ],
+      "battery": {
+        "status": "BATTERY_AVAILABLE",
+        "level": 72
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+#!/bin/sh
+# Stand-in for headsetcontrol, used to exercise capability gating against devices we do
+# not physically have. Put this directory first on the shell's PATH (see run.sh).
+#
+# Battery queries print whatever scenario.json currently holds; every setter succeeds
+# silently, so nothing is ever sent to a real headset.
+dir=$(dirname "$0")
+scenario="${HEADSET_TEST_SCENARIO:-$dir/scenario.json}"
+case "$*" in
+  *-b*json*) cat "$scenario" ;;
+  *) ;;
+esac
+exit 0

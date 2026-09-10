@@ -1,0 +1,29 @@
+{
+  "name": "HeadsetControl",
+  "version": "0.0.0-unknown",
+  "api_version": "1.4",
+  "hidapi_version": "0.15.0",
+  "device_count": 1,
+  "devices": [
+    {
+      "status": "success",
+      "device": "Other Vendor Wireless",
+      "vendor": "Test Vendor",
+      "product": "Other Vendor Wireless",
+      "id_vendor": "0x03f0",
+      "id_product": "0x4444",
+      "capabilities": [
+        "CAP_SIDETONE",
+        "CAP_BATTERY_STATUS"
+      ],
+      "capabilities_str": [
+        "sidetone",
+        "battery status"
+      ],
+      "battery": {
+        "status": "BATTERY_AVAILABLE",
+        "level": 72
+      }
+    }
+  ]
+}
