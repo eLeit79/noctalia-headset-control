@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import qs.Commons
 import qs.Widgets
 import qs.Services.UI
@@ -33,8 +32,8 @@ Item {
   readonly property bool devicePresent: root.pluginApi?.mainInstance?.deviceFound === true
   readonly property string deviceName: root.pluginApi?.mainInstance?.deviceName || root.tr("device.fallback-name")
 
-  readonly property bool hideWhenOffline: root.pluginApi?.pluginSettings?.hideWhenOffline !== undefined ? root.pluginApi.pluginSettings.hideWhenOffline : (root.pluginApi?.manifest?.metadata?.defaultSettings?.hideWhenOffline !== false)
-  readonly property int lowThreshold: root.pluginApi?.pluginSettings?.lowThreshold || root.pluginApi?.manifest?.metadata?.defaultSettings?.lowThreshold || 20
+  readonly property bool hideWhenOffline: root.pluginApi?.pluginSettings?.hideWhenOffline ?? true
+  readonly property int lowThreshold: root.pluginApi?.pluginSettings?.lowThreshold ?? 20
 
   readonly property bool isLow: root.online && !root.charging && root.level >= 0 && root.level <= root.lowThreshold
 
@@ -192,6 +191,15 @@ Item {
       }
     }
   }
+
+  // The tooltip is a one-shot string, so it has to be rebuilt when the state behind it
+  // changes; otherwise a battery change during a long hover is never reflected.
+  onLevelChanged: if (root.hovered)
+    root.buildTooltip()
+  onOnlineChanged: if (root.hovered)
+    root.buildTooltip()
+  onChargingChanged: if (root.hovered)
+    root.buildTooltip()
 
   function buildTooltip() {
     var msg;

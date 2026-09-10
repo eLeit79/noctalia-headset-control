@@ -37,7 +37,9 @@
     },
     "no-controls": "This headset reports no adjustable settings.",
     "waiting": "Waiting for headsetcontrol to report the device...",
-    "write-only-note": "The headset cannot report these settings back, so the values shown are the last ones applied from here."
+    "write-only-note": "The headset cannot report these settings back, so the values shown are the last ones applied from here.",
+    "tool-missing": "headsetcontrol was not found. Install it to see this headset.",
+    "defaults-note": "These are defaults, not readings: the headset cannot report its settings back, and nothing has been applied from here yet."
   },
   "settings": {
     "hide-when-offline": {

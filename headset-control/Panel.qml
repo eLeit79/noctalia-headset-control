@@ -1,7 +1,5 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
-import Quickshell.Io
 import qs.Commons
 import qs.Widgets
 
@@ -129,10 +127,27 @@ Item {
           to: 127
           stepSize: 1
           value: root.main ? root.main.sidetone : 0
+
+          // Dragging commits on release. Arrow keys and the wheel move the value without
+          // pressed ever becoming true, so those commit on a short pause instead —
+          // otherwise a keyboard change was shown but never sent to the headset.
           onPressedChanged: {
-            if (!pressed)
+            if (!pressed) {
+              sidetoneCommit.stop();
               root.main?.applySidetone(value);
+            }
           }
+          onMoved: {
+            if (!pressed)
+              sidetoneCommit.restart();
+          }
+        }
+
+        Timer {
+          id: sidetoneCommit
+          interval: 400
+          repeat: false
+          onTriggered: root.main?.applySidetone(sidetoneSlider.value)
         }
       }
 
@@ -168,10 +183,24 @@ Item {
           to: 90
           stepSize: 5
           value: root.main ? root.main.inactiveTime : 0
+
           onPressedChanged: {
-            if (!pressed)
+            if (!pressed) {
+              inactiveCommit.stop();
               root.main?.applyInactiveTime(value);
+            }
           }
+          onMoved: {
+            if (!pressed)
+              inactiveCommit.restart();
+          }
+        }
+
+        Timer {
+          id: inactiveCommit
+          interval: 400
+          repeat: false
+          onTriggered: root.main?.applyInactiveTime(inactiveSlider.value)
         }
       }
 
@@ -198,7 +227,7 @@ Item {
         // "Have we heard from a device yet?" is deviceFound, not the capability count:
         // a device that reports zero capabilities has still reported, and used to be
         // told the plugin was waiting for it.
-        text: root.main?.deviceFound === true ? root.tr("panel.no-controls") : root.tr("panel.waiting")
+        text: root.main?.toolAvailable === false ? root.tr("panel.tool-missing") : (root.main?.deviceFound === true ? root.tr("panel.no-controls") : root.tr("panel.waiting"))
         pointSize: Style.fontSizeS
         color: Color.mOnSurfaceVariant
         wrapMode: Text.WordWrap
@@ -212,7 +241,10 @@ Item {
       NText {
         Layout.fillWidth: true
         visible: root.main?.hasAnyControl === true
-        text: root.tr("panel.write-only-note")
+        // Before anything has been applied, the values on show are manifest defaults that
+        // may not match the headset; claiming they are "the last ones applied from here"
+        // would be untrue on a fresh install.
+        text: root.main?.controlsApplied === true ? root.tr("panel.write-only-note") : root.tr("panel.defaults-note")
         pointSize: Style.fontSizeXS
         color: Color.mOnSurfaceVariant
         wrapMode: Text.WordWrap
