@@ -1,0 +1,27 @@
+{
+  "name": "HeadsetControl",
+  "version": "0.0.0-unknown",
+  "api_version": "1.4",
+  "hidapi_version": "0.15.0",
+  "device_count": 1,
+  "devices": [
+    {
+      "status": "success",
+      "device": "Sidetone Batt Unavail",
+      "vendor": "Test Vendor",
+      "product": "Sidetone Batt Unavail",
+      "id_vendor": "0x03f0",
+      "id_product": "0x3333",
+      "capabilities": [
+        "CAP_SIDETONE"
+      ],
+      "capabilities_str": [
+        "sidetone"
+      ],
+      "battery": {
+        "status": "BATTERY_UNAVAILABLE",
+        "level": -1
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "HeadsetControl",
+  "version": "0.0.0-unknown",
+  "api_version": "1.4",
+  "hidapi_version": "0.15.0",
+  "device_count": 1,
+  "devices": [
+    {
+      "status": "failure",
+      "device": "Sleeping Headset",
+      "vendor": "Test Vendor",
+      "product": "Sleeping Headset",
+      "id_vendor": "0x03f0",
+      "id_product": "0x098d",
+      "capabilities": [
+        "CAP_SIDETONE",
+        "CAP_BATTERY_STATUS",
+        "CAP_INACTIVE_TIME",
+        "CAP_VOICE_PROMPTS"
+      ],
+      "capabilities_str": [
+        "sidetone",
+        "battery",
+        "inactive time",
+        "voice prompts"
+      ]
+    }
+  ]
+}

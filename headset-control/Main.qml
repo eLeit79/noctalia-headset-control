@@ -87,6 +87,12 @@ Item {
     poll.running = true;
   }
 
+  // Debug-level, so it is silent in normal use and visible with NOCTALIA_DEBUG=1. The
+  // capability tests in test/ read these lines to check gating without a UI.
+  function logState(tag) {
+    Logger.d("HeadsetControl", "state " + tag + " found=" + root.deviceFound + " name='" + root.deviceName + "' level=" + root.batteryLevel + " status=" + root.batteryStatus + " online=" + root.online + " pid=" + root.productId + " caps=[" + root.capabilities.join(",") + "] hasBattery=" + root.hasBattery + " hasSidetone=" + root.hasSidetone + " hasInactive=" + root.hasInactiveTime + " hasVoice=" + root.hasVoicePrompts + " hasAny=" + root.hasAnyControl + " levelIgnored=" + root.sidetoneLevelIgnored);
+  }
+
   function clear() {
     root.deviceFound = false;
     root.batteryLevel = -1;
@@ -103,6 +109,7 @@ Item {
           const dev = (data.devices && data.devices.length > 0) ? data.devices[0] : null;
           if (!dev) {
             root.clear();
+            root.logState("no-device");
             return;
           }
           root.deviceFound = true;
@@ -121,6 +128,7 @@ Item {
             root.batteryStatus = "BATTERY_UNAVAILABLE";
             root.batteryLevel = -1;
           }
+          root.logState("parsed");
         } catch (e) {
           root.clear();
           Logger.w("HeadsetControl", "Cannot parse headsetcontrol output:", e);

@@ -1,0 +1,33 @@
+{
+  "name": "HeadsetControl",
+  "version": "0.0.0-unknown",
+  "api_version": "1.4",
+  "hidapi_version": "0.15.0",
+  "device_count": 1,
+  "devices": [
+    {
+      "status": "success",
+      "device": "HyperX Cloud Alpha Wireless",
+      "vendor": "Test Vendor",
+      "product": "HyperX Cloud Alpha Wireless",
+      "id_vendor": "0x03f0",
+      "id_product": "0x098d",
+      "capabilities": [
+        "CAP_SIDETONE",
+        "CAP_BATTERY_STATUS",
+        "CAP_INACTIVE_TIME",
+        "CAP_VOICE_PROMPTS"
+      ],
+      "capabilities_str": [
+        "sidetone",
+        "battery status",
+        "inactive time",
+        "voice prompts"
+      ],
+      "battery": {
+        "status": "BATTERY_AVAILABLE",
+        "level": 88
+      }
+    }
+  ]
+}
