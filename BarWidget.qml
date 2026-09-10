@@ -29,7 +29,7 @@ Item {
   readonly property int level: root.pluginApi?.mainInstance?.batteryLevel !== undefined ? root.pluginApi.mainInstance.batteryLevel : -1
   readonly property bool online: root.pluginApi?.mainInstance?.online === true
   readonly property bool charging: root.pluginApi?.mainInstance?.charging === true
-  readonly property string deviceName: root.pluginApi?.mainInstance?.deviceName || "Headset"
+  readonly property string deviceName: root.pluginApi?.mainInstance?.deviceName || root.tr("device.fallback-name")
 
   readonly property bool hideWhenOffline: root.pluginApi?.pluginSettings?.hideWhenOffline !== undefined ? root.pluginApi.pluginSettings.hideWhenOffline : (root.pluginApi?.manifest?.metadata?.defaultSettings?.hideWhenOffline !== false)
   readonly property int lowThreshold: root.pluginApi?.pluginSettings?.lowThreshold || root.pluginApi?.manifest?.metadata?.defaultSettings?.lowThreshold || 20
@@ -45,6 +45,19 @@ Item {
 
   implicitWidth: contentWidth
   implicitHeight: contentHeight
+
+  //
+  // ------ i18n ------
+  //
+  // pluginApi.tr() is a plain function, so a binding that calls it has nothing to
+  // re-evaluate on when the language changes. noctalia increments translationVersion on
+  // every translation reload, so reading it here gives those bindings a dependency —
+  // which is exactly what the plugin API's own comment asks plugins to do.
+  readonly property int trVersion: root.pluginApi?.translationVersion || 0
+
+  function tr(key, interpolations) {
+    return (root.trVersion >= 0 && root.pluginApi) ? root.pluginApi.tr(key, interpolations) : "";
+  }
 
   function iconName() {
     if (!root.online)
@@ -143,7 +156,7 @@ Item {
 
       model: [
         {
-          "label": "Refresh",
+          "label": root.tr("bar.menu.refresh"),
           "action": "refresh",
           "icon": "refresh"
         },
@@ -169,11 +182,19 @@ Item {
   function buildTooltip() {
     var msg;
     if (!root.online)
-      msg = root.deviceName + ": off or disconnected";
+      msg = root.tr("bar.tooltip.offline", {
+        "device": root.deviceName
+      });
     else if (root.charging)
-      msg = root.deviceName + ": charging (" + root.level + "%)";
+      msg = root.tr("bar.tooltip.charging", {
+        "device": root.deviceName,
+        "level": root.level
+      });
     else
-      msg = root.deviceName + ": " + root.level + "%";
+      msg = root.tr("bar.tooltip.level", {
+        "device": root.deviceName,
+        "level": root.level
+      });
 
     TooltipService.show(root, msg, BarService.getTooltipDirection(root.screenName));
   }

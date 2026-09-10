@@ -45,6 +45,29 @@ change made with the headset's own buttons will not be reflected.
 **Settings persistence** is `pluginApi.pluginSettings.<key> = v` then
 `pluginApi.saveSettings()` — see `persist()` in `Main.qml`.
 
+## Strings and formatting
+
+Every user-visible string goes through `root.tr("dot.separated.key")`, with the English
+text in `i18n/en.json`; a missing key renders visibly as `!!key!!`. `Logger` messages stay
+inline English — they are dev-facing, like noctalia's own.
+
+Each view file defines its own small `tr()` wrapper that reads `trVersion`
+(`pluginApi.translationVersion`). That read is deliberate: `pluginApi.tr()` is a plain
+function, so without a property dependency a binding would never re-evaluate when the
+language changes. The plugin API's own comment asks plugins to depend on it.
+
+`pluginApi.tr(key, {name: value})` interpolates `{name}` placeholders; `trp(key, count)`
+picks `key` vs `key-plural`. `trp` is unused here because every count in this UI comes off
+a slider whose step never yields 1, so the singular forms would be dead keys.
+
+Adding a language is just `i18n/<langCode>.json` — then re-run `install.sh`, since a new
+file needs its symlink. Missing keys fall back to English automatically.
+
+The QML is formatted with **`qmlformat --indent-width 2 -i`** (the Qt6 binary at
+`/usr/lib/qt6/bin/qmlformat`; the one on `PATH` is Qt5's). All four files are byte-clean
+against it — keep them that way, and note the default 4-space width would reformat
+everything.
+
 ## Constraints that were measured, not assumed
 
 Do not "fix" these; reverting them re-introduces bugs.
@@ -166,8 +189,9 @@ grep -iE "error|TypeError|Cannot read|is not a function" /tmp/noctalia.log
 ```
 
 Ignore these pre-existing unrelated warnings: xdg-portal registration, missing `Malicious`
-colorscheme asset, GitHub API "Moved Permanently", and `i18n/en.json ... File does not
-exist` from the translation watcher (no translations yet).
+colorscheme asset, GitHub API "Moved Permanently". A translation-watcher warning about
+`i18n/en.json` is *not* in that list any more — the file exists now, so that warning means
+the plugin dir is missing its `i18n` symlink (re-run `install.sh`).
 
 ## IPC
 
@@ -198,8 +222,6 @@ headset-control`).
 
 ## Not yet done
 
-- `i18n/en.json` + switch inline English strings to `pluginApi.tr(...)`, which is what the
-  official plugins do. Needed before submitting to `noctalia-plugins`.
 - Optional: a "Hear yourself" quick-toggle in the bar widget's right-click menu, so
   sidetone can be flipped without opening the panel.
 - Optional: `preview.png` (official plugins ship one).

@@ -16,9 +16,22 @@ ColumnLayout {
 
   spacing: Style.marginL
 
+  //
+  // ------ i18n ------
+  //
+  // pluginApi.tr() is a plain function, so a binding that calls it has nothing to
+  // re-evaluate on when the language changes. noctalia increments translationVersion on
+  // every translation reload, so reading it here gives those bindings a dependency —
+  // which is exactly what the plugin API's own comment asks plugins to do.
+  readonly property int trVersion: root.pluginApi?.translationVersion || 0
+
+  function tr(key, interpolations) {
+    return (root.trVersion >= 0 && root.pluginApi) ? root.pluginApi.tr(key, interpolations) : "";
+  }
+
   NToggle {
-    label: "Hide when headset is off"
-    description: "Remove the widget from the bar while the headset is powered down or disconnected."
+    label: root.tr("settings.hide-when-offline.label")
+    description: root.tr("settings.hide-when-offline.desc")
     checked: root.hideWhenOffline
     onToggled: function (checked) {
       root.hideWhenOffline = checked;
@@ -32,12 +45,14 @@ ColumnLayout {
       spacing: Style.marginL
 
       NLabel {
-        label: "Poll interval"
-        description: "How often to ask the headset for its battery level."
+        label: root.tr("settings.poll-interval.label")
+        description: root.tr("settings.poll-interval.desc")
       }
 
       NText {
-        text: root.pollIntervalSeconds + " seconds"
+        text: root.tr("settings.poll-interval.value", {
+          "count": root.pollIntervalSeconds
+        })
         color: Settings.data.colorSchemes.darkMode ? Color.mOnSurface : Color.mOnPrimary
       }
     }
@@ -61,8 +76,8 @@ ColumnLayout {
       spacing: Style.marginL
 
       NLabel {
-        label: "Low battery threshold"
-        description: "Colour the widget as low battery at or below this level."
+        label: root.tr("settings.low-threshold.label")
+        description: root.tr("settings.low-threshold.desc")
       }
 
       NText {

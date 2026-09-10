@@ -63,6 +63,14 @@ Refresh can also be triggered externally:
 
     qs -c noctalia-shell ipc call plugin:headset-control refresh
 
+## Translations
+
+User-visible strings live in `i18n/en.json` and are looked up by key, so the
+plugin can be translated without touching any QML. To add a language, copy
+`i18n/en.json` to `i18n/<langCode>.json` (matching noctalia's language code,
+e.g. `de`, `fr`, `pt`, `zh-CN`), translate the values, and re-run
+`./install.sh`. Missing keys fall back to English.
+
 ## Install
 
 Run the installer, then enable the plugin in `~/.config/noctalia/plugins.json`

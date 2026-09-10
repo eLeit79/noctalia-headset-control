@@ -1,0 +1,56 @@
+{
+  "device": {
+    "fallback-name": "Headset"
+  },
+  "bar": {
+    "menu": {
+      "refresh": "Refresh"
+    },
+    "tooltip": {
+      "offline": "{device}: off or disconnected",
+      "charging": "{device}: charging ({level}%)",
+      "level": "{device}: {level}%"
+    }
+  },
+  "panel": {
+    "status": {
+      "offline": "Off or disconnected",
+      "charging": "Charging - {level}%",
+      "battery": "Battery {level}%"
+    },
+    "sidetone": {
+      "label": "Hear yourself",
+      "desc-toggle": "Sidetone: feeds your mic back into the earcups. This headset supports on/off only, not a level.",
+      "desc-slider": "Sidetone: feeds your mic back into the earcups. 0 turns it off.",
+      "off": "Off"
+    },
+    "inactive-time": {
+      "label": "Auto power-off",
+      "desc": "Switch the headset off after this long with no audio, to save battery.",
+      "never": "Never",
+      "value": "{count} min"
+    },
+    "voice-prompts": {
+      "label": "Voice prompts",
+      "desc": "Spoken announcements from the headset."
+    },
+    "no-controls": "This headset reports no adjustable settings.",
+    "waiting": "Waiting for headsetcontrol to report the device...",
+    "write-only-note": "The headset cannot report these settings back, so the values shown are the last ones applied from here."
+  },
+  "settings": {
+    "hide-when-offline": {
+      "label": "Hide when headset is off",
+      "desc": "Remove the widget from the bar while the headset is powered down or disconnected."
+    },
+    "poll-interval": {
+      "label": "Poll interval",
+      "desc": "How often to ask the headset for its battery level.",
+      "value": "{count} seconds"
+    },
+    "low-threshold": {
+      "label": "Low battery threshold",
+      "desc": "Colour the widget as low battery at or below this level."
+    }
+  }
+}

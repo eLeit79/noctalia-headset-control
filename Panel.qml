@@ -20,14 +20,31 @@ Item {
 
   Component.onCompleted: root.main?.refresh()
 
+  //
+  // ------ i18n ------
+  //
+  // pluginApi.tr() is a plain function, so a binding that calls it has nothing to
+  // re-evaluate on when the language changes. noctalia increments translationVersion on
+  // every translation reload, so reading it here gives those bindings a dependency —
+  // which is exactly what the plugin API's own comment asks plugins to do.
+  readonly property int trVersion: root.pluginApi?.translationVersion || 0
+
+  function tr(key, interpolations) {
+    return (root.trVersion >= 0 && root.pluginApi) ? root.pluginApi.tr(key, interpolations) : "";
+  }
+
   function batteryText() {
     if (!root.main || !root.main.hasBattery)
       return "";
     if (!root.main.online)
-      return "Off or disconnected";
+      return root.tr("panel.status.offline");
     if (root.main.charging)
-      return "Charging - " + root.main.batteryLevel + "%";
-    return "Battery " + root.main.batteryLevel + "%";
+      return root.tr("panel.status.charging", {
+        "level": root.main.batteryLevel
+      });
+    return root.tr("panel.status.battery", {
+      "level": root.main.batteryLevel
+    });
   }
 
   Rectangle {
@@ -49,7 +66,7 @@ Item {
         spacing: 2
 
         NText {
-          text: root.main?.deviceName || "Headset"
+          text: root.main?.deviceName || root.tr("device.fallback-name")
           pointSize: Style.fontSizeL
           font.weight: Font.DemiBold
           color: Color.mOnSurface
@@ -74,8 +91,8 @@ Item {
       NToggle {
         Layout.fillWidth: true
         visible: root.main?.hasSidetone === true && root.main?.sidetoneLevelIgnored === true
-        label: "Hear yourself"
-        description: "Sidetone: feeds your mic back into the earcups. This headset supports on/off only, not a level."
+        label: root.tr("panel.sidetone.label")
+        description: root.tr("panel.sidetone.desc-toggle")
         checked: root.main ? root.main.sidetoneEnabled : false
         onToggled: function (checked) {
           root.main?.applySidetoneEnabled(checked);
@@ -95,12 +112,12 @@ Item {
 
           NLabel {
             Layout.fillWidth: true
-            label: "Hear yourself"
-            description: "Sidetone: feeds your mic back into the earcups. 0 turns it off."
+            label: root.tr("panel.sidetone.label")
+            description: root.tr("panel.sidetone.desc-slider")
           }
 
           NText {
-            text: sidetoneSlider.value <= 0 ? "Off" : Math.round(sidetoneSlider.value).toString()
+            text: sidetoneSlider.value <= 0 ? root.tr("panel.sidetone.off") : Math.round(sidetoneSlider.value).toString()
             color: Color.mOnSurfaceVariant
           }
         }
@@ -132,12 +149,14 @@ Item {
 
           NLabel {
             Layout.fillWidth: true
-            label: "Auto power-off"
-            description: "Switch the headset off after this long with no audio, to save battery."
+            label: root.tr("panel.inactive-time.label")
+            description: root.tr("panel.inactive-time.desc")
           }
 
           NText {
-            text: inactiveSlider.value <= 0 ? "Never" : Math.round(inactiveSlider.value) + " min"
+            text: inactiveSlider.value <= 0 ? root.tr("panel.inactive-time.never") : root.tr("panel.inactive-time.value", {
+              "count": Math.round(inactiveSlider.value)
+            })
             color: Color.mOnSurfaceVariant
           }
         }
@@ -162,8 +181,8 @@ Item {
       NToggle {
         Layout.fillWidth: true
         visible: root.main?.hasVoicePrompts === true
-        label: "Voice prompts"
-        description: "Spoken announcements from the headset."
+        label: root.tr("panel.voice-prompts.label")
+        description: root.tr("panel.voice-prompts.desc")
         checked: root.main ? root.main.voicePrompts : true
         onToggled: function (checked) {
           root.main?.applyVoicePrompts(checked);
@@ -176,7 +195,7 @@ Item {
       NText {
         Layout.fillWidth: true
         visible: root.main !== null && root.main !== undefined && !root.main.hasAnyControl
-        text: root.main && root.main.capabilities.length > 0 ? "This headset reports no adjustable settings." : "Waiting for headsetcontrol to report the device..."
+        text: root.main && root.main.capabilities.length > 0 ? root.tr("panel.no-controls") : root.tr("panel.waiting")
         pointSize: Style.fontSizeS
         color: Color.mOnSurfaceVariant
         wrapMode: Text.WordWrap
@@ -190,7 +209,7 @@ Item {
       NText {
         Layout.fillWidth: true
         visible: root.main?.hasAnyControl === true
-        text: "The headset cannot report these settings back, so the values shown are the last ones applied from here."
+        text: root.tr("panel.write-only-note")
         pointSize: Style.fontSizeXS
         color: Color.mOnSurfaceVariant
         wrapMode: Text.WordWrap
