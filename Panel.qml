@@ -195,7 +195,10 @@ Item {
       NText {
         Layout.fillWidth: true
         visible: root.main !== null && root.main !== undefined && !root.main.hasAnyControl
-        text: root.main && root.main.capabilities.length > 0 ? root.tr("panel.no-controls") : root.tr("panel.waiting")
+        // "Have we heard from a device yet?" is deviceFound, not the capability count:
+        // a device that reports zero capabilities has still reported, and used to be
+        // told the plugin was waiting for it.
+        text: root.main?.deviceFound === true ? root.tr("panel.no-controls") : root.tr("panel.waiting")
         pointSize: Style.fontSizeS
         color: Color.mOnSurfaceVariant
         wrapMode: Text.WordWrap
